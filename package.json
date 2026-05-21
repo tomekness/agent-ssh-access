@@ -1,0 +1,13 @@
+{
+  "name": "agent-ssh-access",
+  "version": "1.0.0",
+  "description": "Safe, auditable SSH access to remote Linux servers and Raspberry Pis for AI agents",
+  "bin": {
+    "agent-ssh-access": "./install.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tomekness/agent-ssh-access"
+  },
+  "license": "MIT"
+}
