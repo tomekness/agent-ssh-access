@@ -1,0 +1,18 @@
+# Host configs — keep only the template
+hosts/*
+!hosts/HOST_TEMPLATE.md
+
+# SSHFS mount points
+mounts/
+
+# Audit log
+session.log
+
+# Generated key metadata
+mounts/*/meta.json
+
+# Claude Code project config (skill source files live at repo root)
+.claude/
+
+# macOS
+.DS_Store
