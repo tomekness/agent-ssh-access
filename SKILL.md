@@ -21,14 +21,26 @@ Safe, auditable SSH access to remote Linux hosts (Raspberry Pi or any server) wi
 
 ### 1. Find the project
 
-Search for `agent-ssh-access/` starting from the current working directory, then parent directories.
+Search in order — use the first match found:
 
+**1a. Verzeichnisbaum** — from cwd upward:
 ```bash
-# Quick check — adjust if cwd differs
-find . -maxdepth 3 -type d -name "agent-ssh-access" 2>/dev/null | head -1
+find . -maxdepth 4 -type d -name "agent-ssh-access" 2>/dev/null | head -1
 ```
 
-If not found: tell the user and stop. The project directory is required.
+**1b. Global config fallback** — if nothing found above:
+```bash
+ls ~/.config/agent-ssh-access/hosts/ 2>/dev/null
+```
+If `~/.config/agent-ssh-access/` exists, use it as `PROJECT`.
+
+If neither found: tell the user and stop with this guidance:
+```
+No agent-ssh-access project found. Either:
+  • Run Claude from a directory that contains agent-ssh-access/
+  • Or create a global config: mkdir -p ~/.config/agent-ssh-access/hosts
+    and copy your host file there
+```
 Set `PROJECT=<path-to-agent-ssh-access>`.
 
 ### 2. Resolve the host
