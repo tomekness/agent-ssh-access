@@ -1,8 +1,9 @@
 ---
 name: agent-ssh-access
-description: Use this skill when the user wants to connect to, manage, inspect, or run commands on a remote Raspberry Pi or Linux server via SSH. Works with Claude Code and OpenCode. Triggers on phrases like "check the pi", "ssh into the server", "connect to mypi", "mount the pi", "run a command on the server", "check docker on the pi", "restart a service on the remote host", "is the pi reachable", or any request to work with a remote host defined in a agent-ssh-access/ project. Also use when the user mentions /agent-ssh-access or asks about the agent access tool.
+description: Use this skill when the user wants to connect to, manage, inspect, or run commands on a remote Raspberry Pi or Linux server via SSH. Works with Claude Code and OpenCode. Triggers on phrases like "check the pi", "ssh into the server", "connect to mypi", "mount the pi", "run a command on the server", "check docker on the pi", "restart a service on the remote host", "is the pi reachable", "what's running on the server", "show containers on the pi", "ssh into the server", or any request to work with a remote host defined in a agent-ssh-access/ project. Also use when the user mentions /agent-ssh-access or asks about the agent access tool.
 argument-hint: [host]
-allowed-tools: [Read, Bash, Glob, Grep, Edit]
+compatibility: [claude-code, opencode]
+allowed-tools: [Read, Write, Bash, Glob, Grep, Edit]
 applyTo: '**'
 usage: |
   check the pi
@@ -11,6 +12,9 @@ usage: |
   restart nginx on the server
   show me the logs on the server
   is the pi reachable?
+  what's running on the server?
+  ssh into the pi and check disk space
+  show me the containers on the pi
 ---
 
 # agent-ssh-access Skill
