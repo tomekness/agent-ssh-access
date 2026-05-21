@@ -16,11 +16,23 @@ Every action requires explicit human approval via a **plan / go** protocol befor
 git clone https://github.com/tomekness/agent-ssh-access
 ```
 
-This directory is both the project folder and the skill source — no separate install needed.
+This directory is both the project folder and the skill source — the shell scripts and host configs all live here.
 
 **2. Install the skill for your agent**
 
-#### Claude Code
+#### Via npx (recommended)
+
+```bash
+# Interactive — asks which agent to install for
+npx github:tomekness/agent-ssh-access
+
+# Or specify directly
+npx github:tomekness/agent-ssh-access claude-code
+npx github:tomekness/agent-ssh-access opencode
+npx github:tomekness/agent-ssh-access both
+```
+
+#### Manually — Claude Code
 
 ```bash
 mkdir -p ~/.claude/skills/agent-ssh-access
@@ -29,7 +41,7 @@ cp agent-ssh-access/SKILL.md ~/.claude/skills/agent-ssh-access/
 
 Restart Claude Code — the skill is active in the next session as `/agent-ssh-access [host]`.
 
-#### OpenCode
+#### Manually — OpenCode
 
 ```bash
 mkdir -p ~/.config/opencode/skills/agent-ssh-access
