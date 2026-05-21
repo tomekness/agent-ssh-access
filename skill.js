@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// Walk up from startDir looking for agent-ssh-access/
+// Walk up from startDir looking for agent-ssh-access/, then fall back to ~/.config/agent-ssh-access/
 function findProject(startDir) {
   let dir = path.resolve(startDir);
   for (let i = 0; i < 8; i++) {
@@ -15,6 +15,8 @@ function findProject(startDir) {
     if (parent === dir) break;
     dir = parent;
   }
+  const globalConfig = path.join(os.homedir(), '.config', 'agent-ssh-access');
+  if (fs.existsSync(globalConfig)) return globalConfig;
   return null;
 }
 
