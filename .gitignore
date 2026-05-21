@@ -14,5 +14,8 @@ mounts/*/meta.json
 # Claude Code project config (skill source files live at repo root)
 .claude/
 
+# npx skills add install directory
+.agents/
+
 # macOS
 .DS_Store
