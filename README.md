@@ -70,7 +70,7 @@ See agent-ssh-access/AGENT_INSTRUCTIONS.md for remote host access rules.
 **3. Add your first host**
 
 ```bash
-cp agent-ssh-access/hosts/HOST_TEMPLATE.md agent-ssh-access/hosts/<hostname>.md
+cp agent-ssh-access/client/hosts/HOST_TEMPLATE.md agent-ssh-access/client/hosts/<hostname>.md
 # fill in Hostname, Port, User, Key, SAFE_PATHS
 ```
 
@@ -79,39 +79,24 @@ cp agent-ssh-access/hosts/HOST_TEMPLATE.md agent-ssh-access/hosts/<hostname>.md
 You need existing admin SSH access to the remote host for this step (your normal user, not agentuser).
 
 ```bash
+# Step 1 — generate keypair locally (once, skipped if already exists)
 cd agent-ssh-access
-./create_access.sh --host <hostname> --port <port> --remote-user <your-admin-user> [--full-sudo]
+./client/create_key.sh
+
+# Step 2 — copy server_setup/ to the remote
+scp -r server_setup/ admin@<hostname>:~/
+
+# Step 3 — install agentuser on the remote
+cat ~/.ssh/id_agentuser.pub | ssh admin@<hostname> 'sudo bash ~/server_setup/01_install.sh [--sudo]'
 ```
 
-- `--remote-user` is your existing admin account on the remote (e.g. `pi`, `ubuntu`, `tk`)
-- `--full-sudo` adds a `NOPASSWD: ALL` sudoers entry — required if you want the agent to run `sudo` commands without a password prompt
-
-The script does two things:
-1. Generates a local ed25519 keypair at `~/.ssh/id_agentuser` (skipped if it already exists)
-2. Copies the public key to the remote, then **prints the commands you need to run there**
-
-After the script finishes, SSH into the remote as your admin user and run the printed commands. On Debian/Raspberry Pi OS they look like:
-
-```bash
-sudo adduser --disabled-password --gecos "" agentuser
-sudo mkdir -p /home/agentuser/.ssh
-sudo tee -a /home/agentuser/.ssh/authorized_keys < /tmp/id_agentuser_<pid>.pub > /dev/null
-sudo chown -R agentuser:agentuser /home/agentuser/.ssh
-sudo chmod 700 /home/agentuser/.ssh && sudo chmod 600 /home/agentuser/.ssh/authorized_keys
-sudo rm -f /tmp/id_agentuser_<pid>.pub
-
-# if you used --full-sudo:
-echo 'agentuser ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/agentuser
-sudo chmod 440 /etc/sudoers.d/agentuser && sudo visudo -c
-```
-
-> **Note:** The script uses `useradd`. On Debian/Raspberry Pi OS you can use `adduser` instead (shown above) — it creates the home directory automatically and is the Debian-native tool.
+- `--sudo` adds a `NOPASSWD: ALL` sudoers entry — required if you want the agent to run `sudo` commands without a password prompt
+- See `server_setup/README.md` for all options (IP restriction, activate/deactivate/remove)
 
 Then verify the login works:
 
 ```bash
-cd agent-ssh-access
-./test_login.sh --host <hostname> --port <port> --key ~/.ssh/id_agentuser
+./client/test_login.sh --host <hostname> --port <port> --key ~/.ssh/id_agentuser
 ```
 
 **5. Use it**
@@ -145,21 +130,33 @@ restart the n8n container
 ```
 agent-ssh-access/
 ├── SKILL.md              # skill instructions — copy to ~/.claude/skills/agent-ssh-access/
-├── skill.js              # OpenCode skill helper
-├── LICENSE
-├── README.md
 ├── AGENT_INSTRUCTIONS.md # fallback for agents without skill support
-├── hosts/
-│   ├── HOST_TEMPLATE.md  # copy this to add a new host
-│   └── <hostname>.md     # your host configs (gitignored)
-├── mounts/
-│   └── <hostname>/       # SSHFS mount root (auto-created, gitignored)
-├── create_access.sh      # provision agentuser on a new host
-├── mount_sshfs.sh        # mount a host via SSHFS
-├── unmount.sh            # unmount
-├── revoke_access.sh      # remove key + sudoers from host
-├── test_login.sh         # verify SSH + sudo work
-└── session_logger.sh     # append structured lines to session.log
+├── skill.js              # OpenCode skill helper
+├── install.js / package.json
+├── LICENSE / README.md
+│
+├── client/               # client-side scripts + runtime data (run on your agent machine)
+│   ├── create_key.sh         # generate local ~/.ssh/id_agentuser keypair (once)
+│   ├── activate_access.sh    # remotely unlock agentuser (restore shell)
+│   ├── deactivate_access.sh  # remotely block agentuser login (set shell to nologin)
+│   ├── revoke_access.sh      # remotely remove key + sudoers entry
+│   ├── mount_sshfs.sh        # mount a host via SSHFS
+│   ├── unmount.sh            # unmount
+│   ├── test_login.sh         # verify SSH + sudo work
+│   ├── session_logger.sh     # append structured lines to session.log
+│   ├── hosts/
+│   │   ├── HOST_TEMPLATE.md  # copy this to add a new host
+│   │   └── <hostname>.md     # your host configs (gitignored)
+│   ├── mounts/
+│   │   └── <hostname>/       # SSHFS mount root (auto-created, gitignored)
+│   └── session.log           # audit log (gitignored)
+│
+└── server_setup/         # server-side scripts — copy this folder to the remote host
+    ├── 01_install.sh     # create agentuser + install public key
+    ├── 02_activate.sh    # unlock user account
+    ├── 03_deactivate.sh  # lock user account (reversible)
+    ├── 04_remove.sh      # delete user + home + sudoers
+    └── README.md
 ```
 
 ---
@@ -171,7 +168,7 @@ agent-ssh-access/
 The agent never executes anything without explicit approval:
 
 1. The agent prints a numbered **Plan:** (1–3 steps)
-2. For privileged steps (sudo, service restarts), the plan is written to `session.log` before asking
+2. For privileged steps (sudo, service restarts), the plan is written to `client/session.log` before asking
 3. You type `go` on its own line
 4. The agent executes — without asking again, unless the plan changes
 5. Any other input is treated as a new instruction
@@ -182,7 +179,7 @@ Each host file defines a `SAFE_PATHS` list. The agent will only read or referenc
 
 ### Audit log
 
-`session.log` records every proposed and confirmed action:
+`client/session.log` records every proposed and confirmed action:
 
 ```
 2026-05-21T09:14:02Z | PLAN      | restart n8n container on mypi
@@ -228,7 +225,7 @@ The key at `~/.ssh/id_agentuser` is generated without a passphrase so the agent 
 
 - Keep file permissions at `600` (the script sets this automatically)
 - Don't copy it into the repo or any shared location
-- Rotate the key periodically: revoke with `./revoke_access.sh` and re-run `create_access.sh`
+- Rotate the key periodically: revoke with `./client/revoke_access.sh`, delete `~/.ssh/id_agentuser`, re-run `./client/create_key.sh` and reinstall via `server_setup/01_install.sh`
 
 ### SAFE_PATHS scope
 Broad paths like `/etc` give the agent read access to sensitive files (`/etc/shadow`, `/etc/passwd`, private configs). Prefer explicit paths:
@@ -243,7 +240,7 @@ Broad paths like `/etc` give the agent read access to sensitive files (`/etc/sha
 If you no longer need agent access, remove it immediately:
 
 ```bash
-./revoke_access.sh --host <hostname> --port <port> --remote-user <admin> --force-remove-all
+./client/revoke_access.sh --host <hostname> --port <port> --remote-user <admin> --force-remove-all
 ```
 
 This removes the public key from `authorized_keys` and deletes the sudoers entry.
