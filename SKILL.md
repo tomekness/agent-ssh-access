@@ -51,23 +51,21 @@ Set `PROJECT=<path-to-agent-ssh-access>`.
 
 List configured hosts (excluding the template):
 ```bash
-ls $PROJECT/hosts/*.md | grep -v HOST_TEMPLATE
+ls $PROJECT/client/hosts/*.md | grep -v HOST_TEMPLATE
 ```
 
 If no host files exist, tell the user and stop with this guidance:
 ```
 No host configured yet. To add one:
 
-  cp $PROJECT/hosts/HOST_TEMPLATE.md $PROJECT/hosts/<hostname>.md
+  cp $PROJECT/client/hosts/HOST_TEMPLATE.md $PROJECT/client/hosts/<hostname>.md
 
-Fill in Hostname, Port, User, Key, and SAFE_PATHS, then run:
+Fill in Hostname, Port, User, Key, and SAFE_PATHS.
 
-  $PROJECT/create_access.sh --host <hostname> --port <port> --remote-user <your-admin-user> [--full-sudo]
-
-See README.md for the full setup walkthrough.
+See README.md for the full setup walkthrough (create_key.sh + server_setup/).
 ```
 
-**With argument** (e.g. `/agent-ssh-access mypi`): use `$PROJECT/hosts/<arg>.md`. If that file does not exist, show the same guidance above with `<hostname>` filled in as the argument the user provided.
+**With argument** (e.g. `/agent-ssh-access mypi`): use `$PROJECT/client/hosts/<arg>.md`. If that file does not exist, show the same guidance above with `<hostname>` filled in as the argument the user provided.
 
 **No argument and one host found**: use it automatically.
 
@@ -84,7 +82,7 @@ Run both checks in parallel and show a compact summary:
 
 ```bash
 # Mount check
-ls $PROJECT/mounts/<Hostname>/ 2>/dev/null | head -3
+ls $PROJECT/client/mounts/<Hostname>/ 2>/dev/null | head -3
 
 # SSH reachability (10s timeout, no interactive prompts)
 ssh -i <Key> -p <Port> -o BatchMode=yes -o ConnectTimeout=10 <User>@<Hostname> 'echo ok'
@@ -110,11 +108,11 @@ Before executing anything:
 
 1. Print a numbered plan (1–3 steps) under the heading **Plan:**
 2. For privileged steps (sudo, service restarts, package installs, sudoers edits):
-   - Log to session.log BEFORE requesting go:
-     `$PROJECT/session_logger.sh plan "<short description>"`
+   - Log to client/session.log BEFORE requesting go:
+     `$PROJECT/client/session_logger.sh plan "<short description>"`
 3. Wait for the exact word **go** on its own line
 4. After go:
-   - Log confirmed: `$PROJECT/session_logger.sh confirmed "<user>"`
+   - Log confirmed: `$PROJECT/client/session_logger.sh confirmed "<user>"`
    - Execute the listed commands without asking again
 5. If the plan changes at any point, print a new Plan and request a new go
 
@@ -126,13 +124,13 @@ Never execute without an explicit go. If the user types anything other than `go`
 
 ### Mount SSHFS
 ```bash
-$PROJECT/mount_sshfs.sh --host <Hostname> --port <Port>
+$PROJECT/client/mount_sshfs.sh --host <Hostname> --port <Port>
 ```
-After mounting, SAFE_PATHS apply to all reads within `mounts/<Hostname>/`.
+After mounting, SAFE_PATHS apply to all reads within `client/mounts/<Hostname>/`.
 
 ### Unmount
 ```bash
-$PROJECT/unmount.sh --host <Hostname>
+$PROJECT/client/unmount.sh --host <Hostname>
 ```
 
 ### Run SSH command (non-privileged)
@@ -147,14 +145,24 @@ ssh -i <Key> -p <Port> -o BatchMode=yes <User>@<Hostname> 'sudo <command>'
 ```
 Audit log required before go. Check Notes in the host file for sudo rules.
 
-### Test login
+### Deactivate access (temporary block, keys preserved)
 ```bash
-$PROJECT/test_login.sh --host <Hostname> --port <Port> --key <Key>
+$PROJECT/client/deactivate_access.sh --host <Hostname> --remote-user <AdminUser> [--port <Port>]
 ```
 
-### Revoke access
+### Activate access (restore after deactivation)
 ```bash
-$PROJECT/revoke_access.sh --host <Hostname> --port <Port> --remote-user <User> [--force-remove-all]
+$PROJECT/client/activate_access.sh --host <Hostname> --remote-user <AdminUser> [--port <Port>]
+```
+
+### Revoke access (permanent — removes key + sudoers)
+```bash
+$PROJECT/client/revoke_access.sh --host <Hostname> --port <Port> --remote-user <AdminUser> [--force-remove-all]
+```
+
+### Test login
+```bash
+$PROJECT/client/test_login.sh --host <Hostname> --port <Port> --key <Key>
 ```
 
 ---
@@ -178,19 +186,20 @@ If the user requests something outside SAFE_PATHS: decline, explain why, and sug
 
 ## Adding a new host
 
-1. Copy `$PROJECT/hosts/HOST_TEMPLATE.md` → `$PROJECT/hosts/<hostname>.md`
-2. Fill in: Hostname, Port, User, Key, SAFE_PATHS, Notes
-3. Run `$PROJECT/create_access.sh --host <HOST> --port <PORT> --remote-user <ADMIN>`
-4. Test with `./test_login.sh`
+1. Run `$PROJECT/client/create_key.sh` (once — skipped if key already exists)
+2. Copy `$PROJECT/server_setup/` to the remote: `scp -r server_setup/ admin@<HOST>:~/`
+3. Install: `cat ~/.ssh/id_agentuser.pub | ssh admin@<HOST> 'sudo bash ~/server_setup/01_install.sh'`
+4. Copy `$PROJECT/client/hosts/HOST_TEMPLATE.md` → `$PROJECT/client/hosts/<hostname>.md` and fill in details
+5. Test with `$PROJECT/client/test_login.sh --host <HOST> --port <PORT> --key ~/.ssh/id_agentuser`
 
 ---
 
 ## Logging
 
-All proposed and confirmed actions go to `$PROJECT/session.log` via `session_logger.sh`.
+All proposed and confirmed actions go to `$PROJECT/client/session.log` via `client/session_logger.sh`.
 
 Levels: `plan`, `confirmed`, `cmd`, `info`
 
 ```bash
-$PROJECT/session_logger.sh info "connected to mypi, docker ps checked"
+$PROJECT/client/session_logger.sh info "connected to mypi, docker ps checked"
 ```
